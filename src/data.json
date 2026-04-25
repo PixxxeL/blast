@@ -1,15 +1,43 @@
 {
     "game": {
+        "steps": 0,
+        "scores": 0,
         "settings": {
             "scenes": [
                 "board"
             ],
             "assetTypes": [
-                "images"
+                "images", "fonts"
             ]
         }
     },
     "board": {
-        "images": []
+        "images": [
+            "background.png", "board.json"
+        ],
+        "fonts": [
+            "marvin.otf"
+        ],
+        "settings": {
+            "steps": 40,
+            "scores": 500,
+            "tiles": {
+                "size": 34,
+                "gap": 2,
+                "upscaleFactor": 1.2,
+                "types": [
+                    "blue", "green", "purpure", "yellow", "red"
+                ],
+                "colors": {
+                    "blue": "#3377ff",
+                    "green": "#99ee22",
+                    "purpure": "#ff66dd",
+                    "yellow": "#ffcc00",
+                    "red": "#ff3300"
+                },
+                "horizontal": 9,
+                "vertical": 10
+            }
+        }
     }
 }
