@@ -1,0 +1,15 @@
+{
+    "game": {
+        "settings": {
+            "scenes": [
+                "board"
+            ],
+            "assetTypes": [
+                "images"
+            ]
+        }
+    },
+    "board": {
+        "images": []
+    }
+}

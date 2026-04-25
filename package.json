@@ -1,0 +1,20 @@
+{
+  "name": "blast",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@reduxjs/toolkit": "^2.11.2",
+    "pixi.js": "^8.18.1",
+    "sass": "^1.99.0",
+    "terser": "^5.46.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.10",
+    "vite-plugin-static-copy": "^4.1.0"
+  }
+}
