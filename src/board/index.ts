@@ -12,7 +12,8 @@ import Engine from '@/board/engine'
 
 
 const HIDE_SPEED:number = 500
-const FALL_SPEED:number = 500
+const FALL_SPEED:number = 400
+const ADD_SPEED:number = 250
 
 export default class BoardScene extends PIXI.Container implements BaseScene {
 
@@ -20,8 +21,11 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
     private boardContainer:Container
     private engine:Engine
     private tweens = new TWEEN.Group()
-    private prevScale:number|null = null
-    private prevZ:number|null = null
+    private lockInteraction:boolean = false
+    private scoresLabel:Label
+    private stepsLabel:Label
+    //private prevScale:number|null = null
+    //private prevZ:number|null = null
 
     constructor(game:Game) {
         super()
@@ -29,7 +33,9 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         this.setup()
     }
 
-    onResize(_event:UIEvent):void {}
+    onResize(_event:UIEvent):void {
+        // @TODO: layout correction
+    }
 
     tick(_time:PIXI.Ticker):void {
         this.tweens.update()
@@ -52,22 +58,22 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         movesScoresLabel.y = pad + 24
         this.addChild(movesScoresLabel)
 
-        const { game, board } = this.getState()
-        const scoresText:string = `${game.scores}/${board.settings.scores}`
-        const movesScores:Label = new Label(scoresText, 170, {
+        const { scores, steps, settings } = this.getState().board
+        const scoresText:string = `${scores}/${settings.scores}`
+        this.scoresLabel = new Label(scoresText, 170, {
             fontSize: 26
         })
-        movesScores.x = (background.width - movesScores.width) * .5 + 38
-        movesScores.y = pad + 44
-        this.addChild(movesScores)
+        this.scoresLabel.x = (background.width - this.scoresLabel.width) * .5 + 38
+        this.scoresLabel.y = pad + 44
+        this.addChild(this.scoresLabel)
 
-        const stepsText:string = `${board.settings.steps - game.steps}`
-        const movesSteps:Label = new Label(stepsText, 170, {
+        const stepsDiff:number = Math.max(0, settings.steps - steps)
+        this.stepsLabel = new Label(`${stepsDiff}`, 170, {
             fontSize: 32
         })
-        movesSteps.x = (background.width - movesSteps.width) * .5 - 90
-        movesSteps.y = pad + 28
-        this.addChild(movesSteps)
+        this.stepsLabel.x = (background.width - this.stepsLabel.width) * .5 - 90
+        this.stepsLabel.y = pad + 28
+        this.addChild(this.stepsLabel)
 
         const boardPanel:Sprite = spriteById('board-panel', 'board/board')
         boardPanel.width = 359
@@ -78,7 +84,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
 
         this.boardContainer = new PIXI.Container()
         this.boardContainer.sortableChildren = true
-        this.engine = new Engine(board.settings.tiles)
+        this.engine = new Engine(settings.tiles)
         this.engineToBoard()
         this.boardContainer.x = (background.width - this.boardContainer.width) * .5
         this.boardContainer.y = (background.height - this.boardContainer.height) * .5 + 8
@@ -86,6 +92,10 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
     }
 
     private engineToBoard():void {
+        this.boardContainer.children.forEach((sprite:TileSprite):void => {
+            sprite.removeAllListeners()
+            sprite.eventMode = 'none'
+        })
         this.boardContainer.removeChildren()
         for (let i:number = 0; i < this.engine.height; i++) {
             for (let j:number = 0; j < this.engine.width; j++) {
@@ -127,8 +137,15 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
     }
 
     private onDownPointer(event:UIEvent):void {
+        if (this.lockInteraction) {
+            return
+        }
         const sprite = event.target as TileSprite
         const [forRemove, forFalls, forAdds] = this.engine.pick(sprite.tileData.index)
+        if (forRemove.length < 3) {
+            return
+        }
+        this.lockInteraction = true
         const tileSize:number = this.getState().board.settings.tiles.size
 
         const removePromises:Promise<void>[] = []
@@ -140,7 +157,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
             const promise = new Promise<void>((resolve) => {
                 new TWEEN.Tween(tileSprite.scale, this.tweens)
                     .to({x:0, y:0}, HIDE_SPEED)
-                    .easing(TWEEN.Easing.Elastic.Out)
+                    .easing(TWEEN.Easing.Back.Out)
                     .onComplete(() => {
                         tileSprite.removeAllListeners()
                         tileSprite.eventMode = 'none'
@@ -153,6 +170,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         }
 
         Promise.all(removePromises).then(() => {
+            this.lockInteraction = false
             const fallPromises:Promise<void>[] = []
             for (const fall of forFalls) {
                 let tileSprite:TileSprite | undefined;
@@ -171,7 +189,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
                 const promise = new Promise<void>((resolve) => {
                     new TWEEN.Tween(tileSprite, this.tweens)
                         .to({x:targetPos.x, y:targetPos.y}, FALL_SPEED)
-                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .easing(TWEEN.Easing.Bounce.Out)
                         .onComplete(() => resolve())
                         .start()
                 })
@@ -198,14 +216,25 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
                     }
                     const promise = new Promise<void>((resolve) => {
                         new TWEEN.Tween(newSprite, this.tweens)
-                            .to({y:targetPos.y}, FALL_SPEED)
-                            .easing(TWEEN.Easing.Quadratic.Out)
+                            .to({y:targetPos.y}, ADD_SPEED)
+                            .easing(TWEEN.Easing.Exponential.Out)
                             .onComplete(() => resolve())
                             .start()
                     })
                     addPromises.push(promise)
                 }
-                Promise.all(addPromises)
+                Promise.all(addPromises).then(() => {
+                    this.game.store.dispatch({
+                        type: 'board/makeStep',
+                        payload: forRemove.length
+                    })
+                    this.makeStep()
+                    if (!this.engine.hasValidMove()) {
+                        alert('Ходов больше нет, перемешиваю!')
+                        this.engine.reset()
+                        this.engineToBoard()
+                    }
+                })
             })
         })
     }
@@ -224,7 +253,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         console.log('Up', event.target)
     }*/
 
-    private overGem(event:UIEvent):void {
+    /*private overGem(event:UIEvent):void {
         const sprite:Sprite = event.target as Sprite
         this.prevScale = sprite.scale.x
         const { upscaleFactor } = this.getState().board.settings.tiles
@@ -241,6 +270,36 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         if (this.prevZ) {
             sprite.zIndex = this.prevZ
         }
+    }*/
+
+    private makeStep():void {
+        let [ stepsDiff, scores, targetScores ] = this.getWinTerms()
+        if (scores >= targetScores) {
+            [ stepsDiff, scores, targetScores ] = this.resetBoard('Вы выиграли! Молодец!')
+        }
+        if (!stepsDiff) {
+            [ stepsDiff, scores, targetScores ] = this.resetBoard('Вы проиграли! Попробуйте еще раз.')
+        }
+        this.scoresLabel.text = `${scores}/${targetScores}`
+        this.stepsLabel.text = `${stepsDiff}`
+    }
+
+    private resetBoard(message:string|null):[number, number, number] {
+        if (message) {
+            alert(message)
+        }
+        this.game.store.dispatch({
+            type: 'board/reset'
+        })
+        this.engine.reset()
+        this.engineToBoard()
+        return this.getWinTerms()
+    }
+
+    private getWinTerms():[number, number, number] {
+        const { scores, steps, settings } = this.getState().board
+        const stepsDiff:number = Math.max(0, settings.steps - steps)
+        return [stepsDiff, scores, settings.scores]
     }
 
     private getState():RootState {

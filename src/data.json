@@ -1,7 +1,5 @@
 {
     "game": {
-        "steps": 0,
-        "scores": 0,
         "settings": {
             "scenes": [
                 "board"
@@ -14,6 +12,8 @@
         }
     },
     "board": {
+        "steps": 0,
+        "scores": 0,
         "images": [
             "background.png", "board.json"
         ],

@@ -86,6 +86,48 @@ export default class Engine {
         return [forRemove, forFalls, forAdds]
     }
 
+    hasValidMove():boolean {
+        const visited:boolean[] = new Array<boolean>(this.dimension).fill(false)
+        for (let i:number = 0; i < this.dimension; i++) {
+            if (this.board[i] === null || visited[i]) {
+                continue
+            }
+            const type:string|null = this.board[i]
+            const queue:number[] = [i]
+            visited[i] = true
+            let count:number = 0
+            while (queue.length > 0) {
+                const current:number = queue.shift()!
+                count++
+                if (count >= 3) {
+                    return true
+                }
+                const row:number = Math.floor(current / this.width)
+                const col:number = current % this.width
+                const neighbors:number[] = []
+                if (row > 0) {
+                    neighbors.push((row - 1) * this.width + col)
+                }
+                if (row < this.height - 1) {
+                    neighbors.push((row + 1) * this.width + col)
+                }
+                if (col > 0) {
+                    neighbors.push(row * this.width + (col - 1))
+                }
+                if (col < this.width - 1) {
+                    neighbors.push(row * this.width + (col + 1))
+                }
+                for (const n of neighbors) {
+                    if (!visited[n] && this.board[n] === type) {
+                        visited[n] = true
+                        queue.push(n)
+                    }
+                }
+            }
+        }
+        return false
+    }
+
     private removeGroup(startIdx:number):number[] {
         const targetType:string|null = this.board[startIdx]
         if (targetType === null) {
