@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js'
 
 import store from '@/game/store'
 import type { AppStore, RootState } from '@/game/store'
+import type { BaseScene } from '@/widgets/baseScene'
 import BoardScene from '@/board/index'
 
 
@@ -11,7 +12,7 @@ export default class Game {
     private container:HTMLElement
     private app:PIXI.Application
     private scenesContainer:PIXI.Container
-    private currentComponent:PIXI.Container
+    private currentComponent:BaseScene
     private scenes:Array<string> = []
 
     constructor(containerId:string) {
@@ -58,21 +59,20 @@ export default class Game {
         })
     }
 
-    private onResize(/*event:UIEvent*/):void {
-        //this.currentComponent?.onResize(event)
-        const viewWidth:number = window.innerWidth
-        const viewHeight:number = window.innerHeight
+    private onResize(event?:UIEvent):void {
+        const viewWidth:number = document.documentElement.clientWidth || window.innerWidth
+        const viewHeight:number = document.documentElement.clientHeight || window.innerHeight
         this.currentComponent.scale.set(1)
-        const baseWidth:number = this.currentComponent.width || 1
-        const baseHeight:number = this.currentComponent.height || 1
-        const scaleFactor:number = Math.max(viewWidth / baseWidth, viewHeight / baseHeight)
+        const { initWidth, initHeight } = this.getState().game.settings
+        const scaleFactor:number = Math.max(viewWidth / initWidth, viewHeight / initHeight)
         this.currentComponent.scale.set(scaleFactor)
-        this.currentComponent.x = (viewWidth - baseWidth * scaleFactor) / 2
-        this.currentComponent.y = (viewHeight - baseHeight * scaleFactor) / 2
+        this.currentComponent.x = (viewWidth - initWidth * scaleFactor) * .5
+        this.currentComponent.y = (viewHeight - initHeight * scaleFactor) * .5
+        this.currentComponent?.onResize(event)
     }
 
-    private tick(/*time:PIXI.Ticker*/):void {
-        //this.currentComponent?.tick(time)
+    private tick(time?:PIXI.Ticker):void {
+        this.currentComponent?.tick(time)
     }
 
     private createScene(/*name:string*/):void {

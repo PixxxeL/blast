@@ -2,13 +2,14 @@ import * as PIXI from 'pixi.js'
 import type { Sprite, Container } from 'pixi.js'
 
 import type Game from '@/game/index'
+import type { RootState } from '@/game/store'
+import type { BaseScene } from '@/widgets/baseScene'
 import Label from '@/widgets/label'
 import { spriteById } from '@/utils'
-import type { RootState } from '@/game/store'
 import Engine from '@/board/engine'
 
 
-export default class BoardScene extends PIXI.Container {
+export default class BoardScene extends PIXI.Container implements BaseScene {
 
     private game:Game
     private boardContainer:Container
@@ -22,11 +23,15 @@ export default class BoardScene extends PIXI.Container {
         this.setup()
     }
 
+    onResize(_event:UIEvent):void {}
+
+    tick(_time:PIXI.Ticker):void {}
+
     private setup() {
         const background:Sprite = PIXI.Sprite.from('board/background')
         this.addChild(background)
 
-        const pad:number = 30
+        const pad:number = 50
         const movesPanel:Sprite  = spriteById('moves-panel', 'board/board')
         movesPanel.width = 305
         movesPanel.height = 112
@@ -68,7 +73,7 @@ export default class BoardScene extends PIXI.Container {
         this.engine = new Engine(board.settings.tiles)
         this.engineToBoard()
         this.boardContainer.x = (background.width - this.boardContainer.width) * .5
-        this.boardContainer.y = (background.height - this.boardContainer.height) * .5 - 14
+        this.boardContainer.y = (background.height - this.boardContainer.height) * .5 + 8
         this.addChild(this.boardContainer)
     }
 
@@ -78,19 +83,19 @@ export default class BoardScene extends PIXI.Container {
             for (let j:number = 0; j < this.engine.width; j++) {
                 const idx:number = i * this.engine.width + j
                 const type:string = this.engine.board[idx]
-                this.addGem(idx, type, j, i)
+                this.addTile(idx, type, j, i)
             }
         }
     }
 
-    private addGem(index:number, type:string, row:number, col:number):void {
+    private addTile(index:number, type:string, row:number, col:number):void {
         const { size, gap } = this.getState().board.settings.tiles
         const x:number = row * size + size * 0.5 + gap * (row + 1)
         const y:number = col * size + size * 0.5 + gap * (col + 1)
-        this.addGemSprite(index, type, x, y)
+        this.addTileSprite(index, type, x, y)
     }
 
-    private addGemSprite(index:number, type:string, x:number, y:number):void {
+    private addTileSprite(index:number, type:string, x:number, y:number):void {
         const size:number = this.getState().board.settings.tiles.size
         const sprite:Sprite = spriteById(`block-${type}`, 'board/board')
         //sprite.userData = {

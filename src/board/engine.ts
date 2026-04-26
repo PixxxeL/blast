@@ -24,22 +24,11 @@ export default class Engine {
     reset():void {
         this.board = []
         for (let idx:number = 0; idx < this.dimension; idx++) {
-            let candidate:string = this.randType()
-            if (idx - 1 >= 0 && idx - 2 >= 0) {
-                if (candidate === this.board[idx - 1] && candidate === this.board[idx - 2]) {
-                    candidate = this.randType(candidate)
-                }
-            }
-            if (idx - this.width >= 0 && idx - 2 * this.width >= 0) {
-                if (candidate === this.board[idx - this.width] && candidate === this.board[idx - 2 * this.width]) {
-                    candidate = this.randType(candidate)
-                }
-            }
-            this.board.push(candidate)
+            this.board.push(this.randType())
         }
     }
 
-    randType(exclude:string | null = null):string {
+    randType():string {
         return this.types[randIntRange(0, this.types.length)]
     }
 
