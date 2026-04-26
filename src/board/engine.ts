@@ -3,11 +3,11 @@ import { randIntRange } from '@/utils'
 
 export default class Engine {
 
-    width:number
-    height:number
-    dimension:number
-    types:string[]
-    board:(string | null)[]
+    readonly width:number
+    readonly height:number
+    readonly dimension:number
+    readonly types:string[]
+    board:(string|null)[] = []
 
     constructor(config: {
         horizontal:number,
@@ -32,89 +32,99 @@ export default class Engine {
         return this.types[randIntRange(0, this.types.length)]
     }
 
-    getConnectedGroup(idx:number):number[] {
-        const targetType:string | null = this.board[idx]
+    pick(idx:number): [number[], Array<{index:number, newIndex:number, removed:number, type:string}>, Array<{newIndex:number, type:string}>] {
+        if (this.board[idx] === null) {
+            return [[], [], []]
+        }
+        const forRemove:number[] = this.removeGroup(idx)
+        if (forRemove.length < 3) {
+            return [[], [], []]
+        }
+        
+        for (const removeIdx of forRemove) {
+            this.board[removeIdx] = null
+        }
+        
+        const forFalls:Array<{index:number, newIndex:number, removed:number, type:string}> = []
+        const forAdds:Array<{newIndex:number, type:string}> = []
+        
+        for (let col:number = 0; col < this.width; col++) {
+            const columnTiles:Array<{index:number, type:string}> = []
+            for (let row:number = this.height - 1; row >= 0; row--) {
+                const index:number = row * this.width + col
+                const tile:string|null = this.board[index]
+                if (tile !== null) {
+                    columnTiles.push({index, type: tile})
+                }
+            }
+            
+            let writeRow:number = this.height - 1
+            for (const tile of columnTiles) {
+                const newIndex:number = writeRow * this.width + col
+                if (tile.index !== newIndex) {
+                    const oldRow:number = Math.floor(tile.index / this.width)
+                    const fallDistance:number = writeRow - oldRow
+                    forFalls.push({
+                        index: tile.index,
+                        newIndex: newIndex,
+                        removed: fallDistance,
+                        type: tile.type
+                    })
+                    this.board[newIndex] = tile.type
+                }
+                writeRow--
+            }
+            
+            for (let row:number = writeRow; row >= 0; row--) {
+                const newIndex:number = row * this.width + col
+                const newType:string = this.randType()
+                forAdds.push({newIndex, type: newType})
+                this.board[newIndex] = newType
+            }
+        }
+        
+        return [forRemove, forFalls, forAdds]
+    }
+
+    private removeGroup(startIdx:number):number[] {
+        const targetType:string|null = this.board[startIdx]
         if (targetType === null) {
             return []
         }
+        
         const visited:Set<number> = new Set()
-        const queue:number[] = [idx]
         const group:number[] = []
-
-        visited.add(idx)
-        group.push(idx)
-
+        const queue:number[] = [startIdx]
+        
         while (queue.length > 0) {
             const current:number = queue.shift()!
+            if (visited.has(current)) {
+                continue
+            }
+            if (this.board[current] !== targetType) {
+                continue
+            }
+            
+            visited.add(current)
+            group.push(current)
+            
             const row:number = Math.floor(current / this.width)
             const col:number = current % this.width
-            const directions: { r:number, c:number }[] = [
-                { r: 0, c: -1 },
-                { r: 0, c: 1 },
-                { r: -1, c: 0 },
-                { r: 1, c: 0 }
-            ]
-
-            for (const d of directions) {
-                const nr:number = row + d.r
-                const nc:number = col + d.c
-                if (nr >= 0 && nr < this.height && nc >= 0 && nc < this.width) {
-                    const nIdx:number = nr * this.width + nc
-                    if (!visited.has(nIdx) && this.board[nIdx] === targetType) {
-                        visited.add(nIdx)
-                        group.push(nIdx)
-                        queue.push(nIdx)
-                    }
+            
+            const neighbors:number[] = []
+            if (row > 0) neighbors.push((row - 1) * this.width + col)
+            if (row < this.height - 1) neighbors.push((row + 1) * this.width + col)
+            if (col > 0) neighbors.push(row * this.width + (col - 1))
+            if (col < this.width - 1) neighbors.push(row * this.width + (col + 1))
+            
+            for (const neighbor of neighbors) {
+                if (!visited.has(neighbor) && this.board[neighbor] === targetType) {
+                    queue.push(neighbor)
                 }
             }
         }
+        
         return group
     }
 
-    removeGroup(idx:number):number {
-        const group:number[] = this.getConnectedGroup(idx)
-        for (const i of group) {
-            this.board[i] = null
-        }
-        return group.length
-    }
-
-    applyGravity():void {
-        for (let col:number = 0; col < this.width; col++) {
-            const tiles:string[] = []
-            for (let row:number = 0; row < this.height; row++) {
-                const idx:number = row * this.width + col
-                const val:string | null = this.board[idx]
-                if (val !== null) {
-                    tiles.push(val)
-                }
-            }
-            const emptyCount:number = this.height - tiles.length
-            for (let row:number = 0; row < this.height; row++) {
-                const idx:number = row * this.width + col
-                if (row < emptyCount) {
-                    this.board[idx] = null
-                } else {
-                    this.board[idx] = tiles[row - emptyCount]
-                }
-            }
-        }
-    }
-
-    fillTop():void {
-        for (let i:number = 0; i < this.dimension; i++) {
-            if (this.board[i] === null) {
-                this.board[i] = this.randType()
-            }
-        }
-    }
-
-    processClick(idx:number):void {
-        if (this.board[idx] === null) {
-            return
-        }
-        this.removeGroup(idx)
-        this.applyGravity()
-        this.fillTop()
-    }
 }

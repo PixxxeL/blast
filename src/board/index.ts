@@ -1,19 +1,25 @@
 import * as PIXI from 'pixi.js'
 import type { Sprite, Container } from 'pixi.js'
+import TWEEN from '@tweenjs/tween.js'
 
 import type Game from '@/game/index'
 import type { RootState } from '@/game/store'
 import type { BaseScene } from '@/widgets/baseScene'
+import type { TileSprite } from '@/types'
 import Label from '@/widgets/label'
 import { spriteById } from '@/utils'
 import Engine from '@/board/engine'
 
+
+const HIDE_SPEED:number = 500
+const FALL_SPEED:number = 500
 
 export default class BoardScene extends PIXI.Container implements BaseScene {
 
     private game:Game
     private boardContainer:Container
     private engine:Engine
+    private tweens = new TWEEN.Group()
     private prevScale:number|null = null
     private prevZ:number|null = null
 
@@ -25,7 +31,9 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
 
     onResize(_event:UIEvent):void {}
 
-    tick(_time:PIXI.Ticker):void {}
+    tick(_time:PIXI.Ticker):void {
+        this.tweens.update()
+    }
 
     private setup() {
         const background:Sprite = PIXI.Sprite.from('board/background')
@@ -97,11 +105,11 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
 
     private addTileSprite(index:number, type:string, x:number, y:number):void {
         const size:number = this.getState().board.settings.tiles.size
-        const sprite:Sprite = spriteById(`block-${type}`, 'board/board')
-        //sprite.userData = {
-        //    index,
-        //    type
-        //}
+        const sprite = spriteById(`block-${type}`, 'board/board') as TileSprite
+        sprite.tileData = {
+            index,
+            type
+        }
         sprite.anchor.set(0.5)
         sprite.x = x
         sprite.y = y
@@ -112,19 +120,109 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         sprite.cursor = 'pointer'
         sprite.eventMode = 'static'
         sprite.on('pointerdown', this.onDownPointer.bind(this))
-        sprite.on('pointerup', this.onUpPointer.bind(this))
-        sprite.on('mouseover', this.overGem.bind(this))
-        sprite.on('mouseout', this.outGem.bind(this))
+        //sprite.on('pointerup', this.onUpPointer.bind(this))
+        //sprite.on('mouseover', this.overGem.bind(this))
+        //sprite.on('mouseout', this.outGem.bind(this))
         this.boardContainer.addChild(sprite)
     }
 
     private onDownPointer(event:UIEvent):void {
-        console.log('Down', event.target)
+        const sprite = event.target as TileSprite
+        const [forRemove, forFalls, forAdds] = this.engine.pick(sprite.tileData.index)
+        const tileSize:number = this.getState().board.settings.tiles.size
+
+        const removePromises:Promise<void>[] = []
+        for (const child of this.boardContainer.children) {
+            const tileSprite = child as TileSprite
+            if (!forRemove.includes(tileSprite.tileData.index)) {
+                continue
+            }
+            const promise = new Promise<void>((resolve) => {
+                new TWEEN.Tween(tileSprite.scale, this.tweens)
+                    .to({x:0, y:0}, HIDE_SPEED)
+                    .easing(TWEEN.Easing.Elastic.Out)
+                    .onComplete(() => {
+                        tileSprite.removeAllListeners()
+                        tileSprite.eventMode = 'none'
+                        this.boardContainer.removeChild(tileSprite)
+                        resolve()
+                    })
+                    .start()
+            })
+            removePromises.push(promise)
+        }
+
+        Promise.all(removePromises).then(() => {
+            const fallPromises:Promise<void>[] = []
+            for (const fall of forFalls) {
+                let tileSprite:TileSprite | undefined;
+                for (const child of this.boardContainer.children) {
+                    const s = child as TileSprite
+                    if (s.tileData.index === fall.index) {
+                        tileSprite = s
+                        break
+                    }
+                }
+                if (!tileSprite) {
+                    continue
+                }
+                tileSprite.tileData.index = fall.newIndex
+                const targetPos = this.indexToPosition(fall.newIndex)
+                const promise = new Promise<void>((resolve) => {
+                    new TWEEN.Tween(tileSprite, this.tweens)
+                        .to({x:targetPos.x, y:targetPos.y}, FALL_SPEED)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .onComplete(() => resolve())
+                        .start()
+                })
+                fallPromises.push(promise)
+            }
+
+            Promise.all(fallPromises).then(() => {
+                const addPromises:Promise<void>[] = []
+                for (const add of forAdds) {
+                    const targetPos = this.indexToPosition(add.newIndex)
+                    const startPos = {x: targetPos.x, y: targetPos.y - this.engine.height * tileSize}
+                    this.addTileSprite(add.newIndex, add.type, startPos.x, startPos.y)
+
+                    let newSprite:TileSprite | undefined
+                    for (const child of this.boardContainer.children) {
+                        const s = child as TileSprite
+                        if (s.tileData.index === add.newIndex) {
+                            newSprite = s
+                            break
+                        }
+                    }
+                    if (!newSprite) {
+                        continue
+                    }
+                    const promise = new Promise<void>((resolve) => {
+                        new TWEEN.Tween(newSprite, this.tweens)
+                            .to({y:targetPos.y}, FALL_SPEED)
+                            .easing(TWEEN.Easing.Quadratic.Out)
+                            .onComplete(() => resolve())
+                            .start()
+                    })
+                    addPromises.push(promise)
+                }
+                Promise.all(addPromises)
+            })
+        })
     }
 
-    private onUpPointer(event:UIEvent):void {
-        console.log('Up', event.target)
+    private indexToPosition(index:number):{x:number, y:number} {
+        const row = Math.floor(index / this.engine.width)
+        const col = index % this.engine.width
+        const { size, gap } = this.getState().board.settings.tiles
+        return {
+            x: col * size + size * .5 + gap * (col + 1),
+            y: row * size + size * .5 + gap * (row + 1)
+        }
     }
+
+    /*private onUpPointer(event:UIEvent):void {
+        console.log('Up', event.target)
+    }*/
 
     private overGem(event:UIEvent):void {
         const sprite:Sprite = event.target as Sprite
