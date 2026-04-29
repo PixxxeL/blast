@@ -14,6 +14,10 @@
     "board": {
         "steps": 0,
         "scores": 0,
+        "boosters": {
+            "swap": 0,
+            "bomb": 0
+        },
         "images": [
             "background.png", "board.json"
         ],
@@ -39,6 +43,10 @@
                 },
                 "horizontal": 9,
                 "vertical": 10
+            },
+            "boosters": {
+                "swap": 3,
+                "bomb": 3
             }
         }
     }

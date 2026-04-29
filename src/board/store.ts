@@ -18,6 +18,15 @@ export default createSlice({
         reset(state) {
             state.steps = 0
             state.scores = 0
+            state.boosters = {...state.settings.boosters}
+            return state
+        },
+        boosterOn(state, action) {
+            const newCount:number = state.boosters[action.payload] - 1
+            if (newCount > 0) {
+                //boost mode on!
+            }
+            state.boosters[action.payload] = Math.max(0, newCount)
             return state
         }
     }

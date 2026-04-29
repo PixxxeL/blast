@@ -8,7 +8,7 @@
 	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":112},
 	"sourceSize": {"w":100,"h":112}
 },
-"block-bomb-max.png":
+"block-bomb.png":
 {
 	"frame": {"x":101,"y":0,"w":100,"h":112},
 	"rotated": false,
@@ -16,7 +16,7 @@
 	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":112},
 	"sourceSize": {"w":100,"h":112}
 },
-"block-bomb.png":
+"booster-bomb.png":
 {
 	"frame": {"x":202,"y":0,"w":100,"h":112},
 	"rotated": false,
@@ -40,7 +40,7 @@
 	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":112},
 	"sourceSize": {"w":100,"h":112}
 },
-"block-rakets.png":
+"block-vertical.png":
 {
 	"frame": {"x":505,"y":0,"w":100,"h":112},
 	"rotated": false,
@@ -56,7 +56,7 @@
 	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":112},
 	"sourceSize": {"w":100,"h":112}
 },
-"block-rockets-horisontal.png":
+"block-horisontal.png":
 {
 	"frame": {"x":707,"y":0,"w":100,"h":112},
 	"rotated": false,
@@ -88,7 +88,7 @@
 	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":347},
 	"sourceSize": {"w":340,"h":347}
 },
-"icon-booster-teleport.png":
+"booster-swap.png":
 {
 	"frame": {"x":341,"y":1206,"w":95,"h":117},
 	"rotated": false,

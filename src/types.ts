@@ -3,7 +3,9 @@ import * as PIXI from 'pixi.js'
 
 export interface TileData {
     index:number
-    type:string // may be enum from data
+    type:string // @TODO: enum from data
 }
 
-export type TileSprite = PIXI.Sprite & { tileData: TileData };
+export type TileSprite = PIXI.Sprite & { tileData: TileData }
+
+export type BoosterType = 'bomb'|'swap'

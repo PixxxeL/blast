@@ -7,6 +7,7 @@ import type { RootState } from '@/game/store'
 import type { BaseScene } from '@/widgets/baseScene'
 import type { TileSprite } from '@/types'
 import Label from '@/widgets/label'
+import Boosters from '@/widgets/boosters'
 import { spriteById } from '@/utils'
 import Engine from '@/board/engine'
 
@@ -42,6 +43,10 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
     }
 
     private setup() {
+        this.game.store.dispatch({
+            type: 'board/reset'
+        })
+
         const background:Sprite = PIXI.Sprite.from('board/background')
         this.addChild(background)
 
@@ -89,6 +94,12 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         this.boardContainer.x = (background.width - this.boardContainer.width) * .5
         this.boardContainer.y = (background.height - this.boardContainer.height) * .5 + 8
         this.addChild(this.boardContainer)
+
+        const boostersContainer = new Boosters(this.game)
+        boostersContainer.scale = .2
+        boostersContainer.x = (background.width - boostersContainer.width) * .5
+        boostersContainer.y = (background.height - boostersContainer.height) * .5 + 265
+        //this.addChild(boostersContainer)
     }
 
     private engineToBoard():void {
