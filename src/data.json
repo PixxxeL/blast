@@ -14,9 +14,11 @@
     "board": {
         "steps": 0,
         "scores": 0,
+        "boosterMode": null,
+        "selected": null,
         "boosters": {
-            "swap": 0,
-            "bomb": 0
+            "bomb": 0,
+            "swap": 0
         },
         "images": [
             "background.png", "board.json"
@@ -26,7 +28,7 @@
         ],
         "settings": {
             "steps": 40,
-            "scores": 500,
+            "scores": 800,
             "tiles": {
                 "size": 34,
                 "gap": 2,
@@ -45,8 +47,8 @@
                 "vertical": 10
             },
             "boosters": {
-                "swap": 3,
-                "bomb": 3
+                "bomb": 3,
+                "swap": 3
             }
         }
     }

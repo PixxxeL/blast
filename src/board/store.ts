@@ -22,11 +22,36 @@ export default createSlice({
             return state
         },
         boosterOn(state, action) {
-            const newCount:number = state.boosters[action.payload] - 1
-            if (newCount > 0) {
-                //boost mode on!
+            const oldCount:number = state.boosters[action.payload],
+                newCount:number = oldCount - 1
+            if (oldCount > 0) {
+                state.boosterMode = action.payload
             }
             state.boosters[action.payload] = Math.max(0, newCount)
+            return state
+        },
+        consumeBombBooster(state, action) {
+            state.boosterMode = null
+            state.steps += 1
+            state.scores += action.payload * SCORES_FACTOR
+            return state
+        },
+        consumeSwapBooster(state) {
+            state.boosterMode = null
+            state.selected = null
+            return state
+        },
+        selectSwapIndex(state, action) {
+            state.selected = action.payload
+            return state
+        },
+        cancelBooster(state, action) {
+            state.boosterMode = null
+            state.selected = null
+            const newCount:number = state.boosters[action.payload] + 1
+            state.boosters[action.payload] = Math.min(
+                state.settings.boosters[action.payload], newCount
+            )
             return state
         }
     }

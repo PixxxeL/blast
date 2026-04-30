@@ -39,6 +39,8 @@ export default class Booster extends PIXI.Container {
         this.cursor = 'pointer'
         this.eventMode = 'static'
         this.on('pointerdown', this.onClick)
+
+        this.pivot.set(this.width * .5, this.height * .5)
     }
 
     get count():number {
@@ -50,7 +52,11 @@ export default class Booster extends PIXI.Container {
         this.countLabel.text = `${value}`
     }
 
-    onClick(_event:UIEvent) {
+    onClick(event:PIXI.FederatedPointerEvent) {
+        event.stopPropagation()
+        if (this.game.store.getState().board.boosterMode) {
+            return
+        }
         this.game.store.dispatch({
             type: 'board/boosterOn',
             payload: this.type

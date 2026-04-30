@@ -12,6 +12,7 @@
     "@reduxjs/toolkit": "^2.11.2",
     "@tweenjs/tween.js": "^25.0.0",
     "@types/node": "^25.6.0",
+    "pixi-filters": "^6.1.5",
     "pixi.js": "^8.18.1",
     "sass": "^1.99.0",
     "terser": "^5.46.2",

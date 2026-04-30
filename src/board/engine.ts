@@ -1,5 +1,8 @@
 import { randIntRange } from '@/utils'
+import type { BoardRemoved, BoardFalls, BoardAdds, BoardActionResult } from '@/types'
 
+
+const BOMB_DISTANCE:number = 1
 
 export default class Engine {
 
@@ -32,58 +35,52 @@ export default class Engine {
         return this.types[randIntRange(0, this.types.length)]
     }
 
-    pick(idx:number): [number[], Array<{index:number, newIndex:number, removed:number, type:string}>, Array<{newIndex:number, type:string}>] {
+    pick(idx:number):BoardActionResult {
         if (this.board[idx] === null) {
             return [[], [], []]
         }
-        const forRemove:number[] = this.removeGroup(idx)
+        const forRemove:BoardRemoved = this.removeGroup(idx)
         if (forRemove.length < 3) {
             return [[], [], []]
         }
-        
         for (const removeIdx of forRemove) {
             this.board[removeIdx] = null
         }
-        
-        const forFalls:Array<{index:number, newIndex:number, removed:number, type:string}> = []
-        const forAdds:Array<{newIndex:number, type:string}> = []
-        
-        for (let col:number = 0; col < this.width; col++) {
-            const columnTiles:Array<{index:number, type:string}> = []
-            for (let row:number = this.height - 1; row >= 0; row--) {
-                const index:number = row * this.width + col
-                const tile:string|null = this.board[index]
-                if (tile !== null) {
-                    columnTiles.push({index, type: tile})
+        const [forFalls, forAdds] = this.applyFallsAndAdds()
+        return [forRemove, forFalls, forAdds]
+    }
+
+    bomb(idx:number):BoardActionResult {
+        if (this.board[idx] === null) {
+            return [[], [], []]
+        }
+        const targetRow = Math.floor(idx / this.width)
+        const targetCol = idx % this.width
+        const forRemove:BoardRemoved = []
+        for (let r = 0; r < this.height; r++) {
+            for (let c = 0; c < this.width; c++) {
+                const dr = Math.abs(r - targetRow)
+                const dc = Math.abs(c - targetCol)
+                if (dr <= BOMB_DISTANCE && dc <= BOMB_DISTANCE) {
+                    const index = r * this.width + c
+                    if (this.board[index] !== null) {
+                        forRemove.push(index)
+                    }
                 }
-            }
-            
-            let writeRow:number = this.height - 1
-            for (const tile of columnTiles) {
-                const newIndex:number = writeRow * this.width + col
-                if (tile.index !== newIndex) {
-                    const oldRow:number = Math.floor(tile.index / this.width)
-                    const fallDistance:number = writeRow - oldRow
-                    forFalls.push({
-                        index: tile.index,
-                        newIndex: newIndex,
-                        removed: fallDistance,
-                        type: tile.type
-                    })
-                    this.board[newIndex] = tile.type
-                }
-                writeRow--
-            }
-            
-            for (let row:number = writeRow; row >= 0; row--) {
-                const newIndex:number = row * this.width + col
-                const newType:string = this.randType()
-                forAdds.push({newIndex, type: newType})
-                this.board[newIndex] = newType
             }
         }
-        
+        for (const removeIdx of forRemove) {
+            this.board[removeIdx] = null
+        }
+        const [forFalls, forAdds] = this.applyFallsAndAdds()
         return [forRemove, forFalls, forAdds]
+    }
+
+    swap(fromIdx:number, toIdx:number):void {
+        const fromType:string = this.board[fromIdx]
+        const toType:string = this.board[toIdx]
+        this.board[fromIdx] = toType
+        this.board[toIdx] = fromType
     }
 
     hasValidMove():boolean {
@@ -128,16 +125,14 @@ export default class Engine {
         return false
     }
 
-    private removeGroup(startIdx:number):number[] {
+    private removeGroup(startIdx:number):BoardRemoved {
         const targetType:string|null = this.board[startIdx]
         if (targetType === null) {
             return []
         }
-        
         const visited:Set<number> = new Set()
-        const group:number[] = []
+        const group:BoardRemoved = []
         const queue:number[] = [startIdx]
-        
         while (queue.length > 0) {
             const current:number = queue.shift()!
             if (visited.has(current)) {
@@ -146,27 +141,67 @@ export default class Engine {
             if (this.board[current] !== targetType) {
                 continue
             }
-            
             visited.add(current)
             group.push(current)
-            
             const row:number = Math.floor(current / this.width)
             const col:number = current % this.width
-            
             const neighbors:number[] = []
-            if (row > 0) neighbors.push((row - 1) * this.width + col)
-            if (row < this.height - 1) neighbors.push((row + 1) * this.width + col)
-            if (col > 0) neighbors.push(row * this.width + (col - 1))
-            if (col < this.width - 1) neighbors.push(row * this.width + (col + 1))
-            
+            if (row > 0) {
+                neighbors.push((row - 1) * this.width + col)
+            }
+            if (row < this.height - 1) {
+                neighbors.push((row + 1) * this.width + col)
+            }
+            if (col > 0) {
+                neighbors.push(row * this.width + (col - 1))
+            }
+            if (col < this.width - 1) {
+                neighbors.push(row * this.width + (col + 1))
+            }
             for (const neighbor of neighbors) {
                 if (!visited.has(neighbor) && this.board[neighbor] === targetType) {
                     queue.push(neighbor)
                 }
             }
         }
-        
         return group
+    }
+
+    private applyFallsAndAdds():[BoardFalls, BoardAdds] {
+        const forFalls:BoardFalls = []
+        const forAdds:BoardAdds = []
+        for (let col = 0; col < this.width; col++) {
+            const columnTiles: Array<{ index: number, type: string }> = []
+            for (let row = this.height - 1; row >= 0; row--) {
+                const index = row * this.width + col
+                const tile = this.board[index]
+                if (tile !== null) {
+                    columnTiles.push({ index, type: tile })
+                }
+            }
+            let writeRow = this.height - 1
+            for (const tile of columnTiles) {
+                const newIndex = writeRow * this.width + col
+                if (tile.index !== newIndex) {
+                    //const oldRow = Math.floor(tile.index / this.width)
+                    //const fallDistance = writeRow - oldRow
+                    forFalls.push({
+                        index: tile.index,
+                        newIndex,
+                        //removed: fallDistance
+                    })
+                    this.board[newIndex] = tile.type
+                }
+                writeRow--
+            }
+            for (let row = writeRow; row >= 0; row--) {
+                const newIndex = row * this.width + col
+                const newType = this.randType()
+                forAdds.push({ newIndex, type: newType })
+                this.board[newIndex] = newType
+            }
+        }
+        return [forFalls, forAdds]
     }
 
 }
