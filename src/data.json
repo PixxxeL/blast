@@ -27,7 +27,7 @@
             "marvin.otf"
         ],
         "settings": {
-            "steps": 40,
+            "steps": 50,
             "scores": 800,
             "tiles": {
                 "size": 34,

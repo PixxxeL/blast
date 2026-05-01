@@ -6,7 +6,7 @@ import TWEEN from '@tweenjs/tween.js'
 import type Game from '@/game/index'
 import type { RootState } from '@/game/store'
 import type { BaseScene } from '@/widgets/baseScene'
-import type { TileSprite } from '@/types'
+import type { TileSprite, BoardFalls, BoardAdds, BoardActionResult } from '@/types'
 import Label from '@/widgets/label'
 import Boosters from '@/widgets/boosters'
 import { spriteById, hexToInt } from '@/utils'
@@ -16,6 +16,7 @@ import Engine from '@/board/engine'
 const HIDE_SPEED:number = 500
 const FALL_SPEED:number = 400
 const ADD_SPEED:number = 250
+const BOMB_SPEED:number = 750
 const SWAP_SPEED:number = 400
 
 export default class BoardScene extends PIXI.Container implements BaseScene {
@@ -177,7 +178,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
                     const color = settings.tiles.colors[type] || '#ffffff'
                     this.glowFilter.color = hexToInt(color)
                     sprite.filters = [this.glowFilter]
-                } else {
+                } else if (selected !== index) {
                     const prev = this.boardContainer.children.find((child:TileSprite) => {
                         return child.tileData.index === selected
                     }) as TileSprite
@@ -275,14 +276,12 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         return this.game.store.getState()
     }
 
-    private pickAnimation(index:number):void {
-        const [forRemove, forFalls, forAdds] = this.engine.pick(index)
+    private pickAnimation(index: number):void {
+        const [forRemove, forFalls, forAdds]:BoardActionResult = this.engine.pick(index)
         if (forRemove.length < 3) {
             return
         }
         this.lockInteraction = true
-        const tileSize:number = this.getState().board.settings.tiles.size
-
         const removePromises:Promise<void>[] = []
         for (const child of this.boardContainer.children) {
             const tileSprite = child as TileSprite
@@ -291,7 +290,10 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
             }
             const promise = new Promise<void>((resolve) => {
                 new TWEEN.Tween(tileSprite.scale, this.tweens)
-                    .to({x:0, y:0}, HIDE_SPEED)
+                    .to({
+                        x: 0,
+                        y: 0
+                    }, HIDE_SPEED)
                     .easing(TWEEN.Easing.Back.Out)
                     .onComplete(() => {
                         tileSprite.removeAllListeners()
@@ -303,85 +305,17 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
             })
             removePromises.push(promise)
         }
-
         Promise.all(removePromises).then(() => {
             this.lockInteraction = false
-            const fallPromises:Promise<void>[] = []
-            for (const fall of forFalls) {
-                let tileSprite:TileSprite | undefined;
-                for (const child of this.boardContainer.children) {
-                    const s = child as TileSprite
-                    if (s.tileData.index === fall.index) {
-                        tileSprite = s
-                        break
-                    }
-                }
-                if (!tileSprite) {
-                    continue
-                }
-                tileSprite.tileData.index = fall.newIndex
-                const targetPos = this.indexToPosition(fall.newIndex)
-                const promise = new Promise<void>((resolve) => {
-                    new TWEEN.Tween(tileSprite, this.tweens)
-                        .to({x:targetPos.x, y:targetPos.y}, FALL_SPEED)
-                        .easing(TWEEN.Easing.Bounce.Out)
-                        .onComplete(() => resolve())
-                        .start()
-                })
-                fallPromises.push(promise)
-            }
-
-            Promise.all(fallPromises).then(() => {
-                const addPromises:Promise<void>[] = []
-                for (const add of forAdds) {
-                    const targetPos = this.indexToPosition(add.newIndex)
-                    const startPos = {x: targetPos.x, y: targetPos.y - this.engine.height * tileSize}
-                    this.addTileSprite(add.newIndex, add.type, startPos.x, startPos.y)
-
-                    let newSprite:TileSprite | undefined
-                    for (const child of this.boardContainer.children) {
-                        const s = child as TileSprite
-                        if (s.tileData.index === add.newIndex) {
-                            newSprite = s
-                            break
-                        }
-                    }
-                    if (!newSprite) {
-                        continue
-                    }
-                    const promise = new Promise<void>((resolve) => {
-                        new TWEEN.Tween(newSprite, this.tweens)
-                            .to({y:targetPos.y}, ADD_SPEED)
-                            .easing(TWEEN.Easing.Exponential.Out)
-                            .onComplete(() => resolve())
-                            .start()
-                    })
-                    addPromises.push(promise)
-                }
-                Promise.all(addPromises).then(() => {
-                    this.game.store.dispatch({
-                        type: 'board/makeStep',
-                        payload: forRemove.length
-                    })
-                    this.makeStep()
-                    if (!this.engine.hasValidMove()) {
-                        alert('Ходов больше нет, перемешиваю!')
-                        this.engine.reset()
-                        this.engineToBoard()
-                    }
-                })
+            this.fallsAnimation(forFalls).then(() => {
+                this.addsAnimation(forAdds, forRemove.length, 'board/makeStep')
             })
         })
     }
 
-    private bombAnimation(index:number):void {
-        const [forRemove, forFalls, forAdds] = this.engine.bomb(index)
-        if (forRemove.length < 3) {
-            return
-        }
+    private bombAnimation(index: number):void {
+        const [forRemove, forFalls, forAdds]:BoardActionResult = this.engine.bomb(index)
         this.lockInteraction = true
-        const tileSize:number = this.getState().board.settings.tiles.size
-
         const removePromises:Promise<void>[] = []
         for (const child of this.boardContainer.children) {
             const tileSprite = child as TileSprite
@@ -389,8 +323,14 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
                 continue
             }
             const promise = new Promise<void>((resolve) => {
-                new TWEEN.Tween(tileSprite.scale, this.tweens)
-                    .to({x:0, y:0}, HIDE_SPEED)
+                new TWEEN.Tween(tileSprite, this.tweens)
+                    .to({
+                        scale: {
+                            x: 1.25,
+                            y: 1.25
+                        },
+                        alpha: 0
+                    }, BOMB_SPEED)
                     .easing(TWEEN.Easing.Back.Out)
                     .onComplete(() => {
                         tileSprite.removeAllListeners()
@@ -402,73 +342,10 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
             })
             removePromises.push(promise)
         }
-
         Promise.all(removePromises).then(() => {
             this.lockInteraction = false
-            const fallPromises:Promise<void>[] = []
-            for (const fall of forFalls) {
-                let tileSprite:TileSprite | undefined;
-                for (const child of this.boardContainer.children) {
-                    const s = child as TileSprite
-                    if (s.tileData.index === fall.index) {
-                        tileSprite = s
-                        break
-                    }
-                }
-                if (!tileSprite) {
-                    continue
-                }
-                tileSprite.tileData.index = fall.newIndex
-                const targetPos = this.indexToPosition(fall.newIndex)
-                const promise = new Promise<void>((resolve) => {
-                    new TWEEN.Tween(tileSprite, this.tweens)
-                        .to({x:targetPos.x, y:targetPos.y}, FALL_SPEED)
-                        .easing(TWEEN.Easing.Bounce.Out)
-                        .onComplete(() => resolve())
-                        .start()
-                })
-                fallPromises.push(promise)
-            }
-
-            Promise.all(fallPromises).then(() => {
-                const addPromises:Promise<void>[] = []
-                for (const add of forAdds) {
-                    const targetPos = this.indexToPosition(add.newIndex)
-                    const startPos = {x: targetPos.x, y: targetPos.y - this.engine.height * tileSize}
-                    this.addTileSprite(add.newIndex, add.type, startPos.x, startPos.y)
-
-                    let newSprite:TileSprite | undefined
-                    for (const child of this.boardContainer.children) {
-                        const s = child as TileSprite
-                        if (s.tileData.index === add.newIndex) {
-                            newSprite = s
-                            break
-                        }
-                    }
-                    if (!newSprite) {
-                        continue
-                    }
-                    const promise = new Promise<void>((resolve) => {
-                        new TWEEN.Tween(newSprite, this.tweens)
-                            .to({y:targetPos.y}, ADD_SPEED)
-                            .easing(TWEEN.Easing.Exponential.Out)
-                            .onComplete(() => resolve())
-                            .start()
-                    })
-                    addPromises.push(promise)
-                }
-                Promise.all(addPromises).then(() => {
-                    this.game.store.dispatch({
-                        type: 'board/consumeBombBooster',
-                        payload: forRemove.length
-                    })
-                    this.makeStep()
-                    if (!this.engine.hasValidMove()) {
-                        alert('Ходов больше нет, перемешиваю!')
-                        this.engine.reset()
-                        this.engineToBoard()
-                    }
-                })
+            this.fallsAnimation(forFalls).then(() => {
+                this.addsAnimation(forAdds, forRemove.length, 'board/consumeBombBooster')
             })
         })
     }
@@ -495,6 +372,83 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
                 this.lockInteraction = false
             })
             .start()
+    }
+
+    private fallsAnimation(forFalls:BoardFalls):Promise<void> {
+        const fallPromises:Promise<void>[] = []
+        for (const fall of forFalls) {
+            let tileSprite:TileSprite|undefined;
+            for (const child of this.boardContainer.children) {
+                const s = child as TileSprite
+                if (s.tileData.index === fall.index) {
+                    tileSprite = s
+                    break
+                }
+            }
+            if (!tileSprite) {
+                continue
+            }
+            tileSprite.tileData.index = fall.newIndex
+            const targetPos = this.indexToPosition(fall.newIndex)
+            const promise = new Promise<void>((resolve) => {
+                new TWEEN.Tween(tileSprite, this.tweens)
+                    .to({
+                        x: targetPos.x,
+                        y: targetPos.y
+                    }, FALL_SPEED)
+                    .easing(TWEEN.Easing.Bounce.Out)
+                    .onComplete(() => resolve())
+                    .start()
+            })
+            fallPromises.push(promise)
+        }
+        return Promise.all(fallPromises).then(() => {})
+    }
+
+    private addsAnimation(forAdds:BoardAdds, removeCount:number, actionType:string):Promise<void> {
+        const tileSize:number = this.getState().board.settings.tiles.size
+        const addPromises:Promise<void>[] = []
+        for (const add of forAdds) {
+            const targetPos = this.indexToPosition(add.newIndex)
+            const startPos = {
+                x: targetPos.x,
+                y: targetPos.y - this.engine.height * tileSize
+            }
+            this.addTileSprite(add.newIndex, add.type, startPos.x, startPos.y)
+            let newSprite: TileSprite | undefined;
+            for (const child of this.boardContainer.children) {
+                const s = child as TileSprite
+                if (s.tileData.index === add.newIndex) {
+                    newSprite = s
+                    break
+                }
+            }
+            if (!newSprite) {
+                continue
+            }
+            const promise = new Promise<void>((resolve) => {
+                new TWEEN.Tween(newSprite, this.tweens)
+                    .to({
+                        y: targetPos.y
+                    }, ADD_SPEED)
+                    .easing(TWEEN.Easing.Exponential.Out)
+                    .onComplete(() => resolve())
+                    .start()
+            })
+            addPromises.push(promise)
+        }
+        return Promise.all(addPromises).then(() => {
+            this.game.store.dispatch({
+                type: actionType,
+                payload: removeCount
+            })
+            this.makeStep()
+            if (!this.engine.hasValidMove()) {
+                alert('Ходов больше нет, перемешиваю!')
+                this.engine.reset()
+                this.engineToBoard()
+            }
+        })
     }
 
 }

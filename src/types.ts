@@ -1,9 +1,12 @@
 import * as PIXI from 'pixi.js'
 
 
+// должен строго соответствовать ключу данных board.settings.tiles.types
+export type TileTypes = 'blue'|'green'|'purpure'|'yellow'|'red'
+
 export interface TileData {
     index:number
-    type:string // @TODO: enum from data
+    type:TileTypes
 }
 
 export type TileSprite = PIXI.Sprite & { tileData: TileData }
