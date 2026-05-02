@@ -6,7 +6,10 @@ import TWEEN from '@tweenjs/tween.js'
 import type Game from '@/game/index'
 import type { RootState } from '@/game/store'
 import type { BaseScene } from '@/widgets/baseScene'
-import type { TileTypes, TileSprite, BoardFalls, BoardAdds, BoardActionResult } from '@/types'
+import type {
+    TileTypes, TileSprite, SuperTypes,
+    BoardRemoved, BoardFalls, BoardAdds, BoardActionResult
+} from '@/types'
 import Label from '@/widgets/label'
 import Boosters from '@/widgets/boosters'
 import { spriteById, hexToInt } from '@/utils'
@@ -18,6 +21,7 @@ const FALL_SPEED:number = 400
 const ADD_SPEED:number = 250
 const BOMB_SPEED:number = 750
 const SWAP_SPEED:number = 400
+const SUPER_SPEED:number = 500
 
 export default class BoardScene extends PIXI.Container implements BaseScene {
 
@@ -134,7 +138,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         this.addTileSprite(index, type, x, y)
     }
 
-    private addTileSprite(index:number, type:TileTypes, x:number, y:number):void {
+    private addTileSprite(index:number, type:TileTypes, x:number, y:number):TileSprite {
         const size:number = this.getState().board.settings.tiles.size
         const sprite = spriteById(`block-${type}`, 'board/board') as TileSprite
         sprite.tileData = {
@@ -155,6 +159,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         //sprite.on('mouseover', this.overGem.bind(this))
         //sprite.on('mouseout', this.outGem.bind(this))
         this.boardContainer.addChild(sprite)
+        return sprite
     }
 
     private onDownPointer(event:PIXI.FederatedPointerEvent):void {
@@ -164,10 +169,17 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         }
         const sprite = event.target as TileSprite,
             { index, type } = sprite.tileData,
-            { boosterMode, selected, settings } = this.getState().board
-        switch (boosterMode) {
+            { boosterMode, selected, settings } = this.getState().board,
+            mode = boosterMode || type
+        switch (mode) {
             case 'bomb':
                 this.bombAnimation(index)
+                break
+            case 'vertical':
+                this.verticalAnimation(index)
+                break
+            case 'horisontal':
+                this.horizontalAnimation(index)
                 break
             case 'swap':
                 if (!selected) {
@@ -276,11 +288,35 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         return this.game.store.getState()
     }
 
-    private pickAnimation(index: number):void {
+    private pickAnimation(index:number):void {
         const [forRemove, forFalls, forAdds]:BoardActionResult = this.engine.pick(index)
         if (forRemove.length < 3) {
             return
         }
+        this.genericAnimation(forRemove, forFalls, forAdds)
+    }
+
+    private verticalAnimation(index:number):void {
+        const [forRemove, forFalls, forAdds]:BoardActionResult = this.engine.vertical(index)
+        if (forRemove.length < 3) {
+            return
+        }
+        this.genericAnimation(forRemove, forFalls, forAdds)
+    }
+
+    private horizontalAnimation(index:number):void {
+        const [forRemove, forFalls, forAdds]:BoardActionResult = this.engine.horizontal(index)
+        if (forRemove.length < 3) {
+            return
+        }
+        this.genericAnimation(forRemove, forFalls, forAdds)
+    }
+
+    private genericAnimation(
+        forRemove:BoardRemoved,
+        forFalls:BoardFalls,
+        forAdds:BoardAdds
+    ):void {
         this.lockInteraction = true
         const removePromises:Promise<void>[] = []
         for (const child of this.boardContainer.children) {
@@ -375,6 +411,7 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
     }
 
     private fallsAnimation(forFalls:BoardFalls):Promise<void> {
+        const { supers } = this.engine
         const fallPromises:Promise<void>[] = []
         for (const fall of forFalls) {
             let tileSprite:TileSprite|undefined;
@@ -389,6 +426,19 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
                 continue
             }
             tileSprite.tileData.index = fall.newIndex
+            const oldType:TileTypes = tileSprite.tileData.type,
+                newType:TileTypes = fall.type
+            let superTile:TileSprite;
+            if (supers.includes(newType as SuperTypes) && oldType != newType) {
+                superTile = this.addTileSprite(
+                    tileSprite.tileData.index,
+                    newType,
+                    0,
+                    0
+                )
+                superTile.alpha = 0
+                superTile.scale.set(tileSprite.scale.x * 1.5)
+            }
             const targetPos = this.indexToPosition(fall.newIndex)
             const promise = new Promise<void>((resolve) => {
                 new TWEEN.Tween(tileSprite, this.tweens)
@@ -397,7 +447,27 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
                         y: targetPos.y
                     }, FALL_SPEED)
                     .easing(TWEEN.Easing.Bounce.Out)
-                    .onComplete(() => resolve())
+                    .onComplete(() => {
+                        if (superTile) {
+                            tileSprite.removeAllListeners()
+                            tileSprite.eventMode = 'none'
+                            this.boardContainer.removeChild(tileSprite)
+                            superTile.x = tileSprite.x
+                            superTile.y = tileSprite.y
+                            const targetScale:number = tileSprite.scale.x
+                            new TWEEN.Tween(superTile, this.tweens)
+                                .to({
+                                    scale: {
+                                        x: targetScale,
+                                        y: targetScale
+                                    },
+                                    alpha: 1
+                                }, SUPER_SPEED)
+                                .easing(TWEEN.Easing.Bounce.Out)
+                                .start()
+                        }
+                        return resolve()
+                    })
                     .start()
             })
             fallPromises.push(promise)

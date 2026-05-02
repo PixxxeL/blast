@@ -1,27 +1,29 @@
 import { randIntRange } from '@/utils'
-import type { BoardRemoved, BoardFalls, BoardAdds, BoardActionResult } from '@/types'
+import type {
+    BoardRemoved, BoardFallsItem, BoardFalls, BoardAddsItem, BoardAdds,
+    BoardActionResult, EngineConfig, RegularTypes, SuperTypes, TileTypes
+} from '@/types'
 
 
 const BOMB_DISTANCE:number = 1
 const MATCH_THRESHOLD:number = 3
+const SUPER_THRESHOLD:number = 5
 
 export default class Engine {
 
     readonly width:number
     readonly height:number
     readonly dimension:number
-    readonly types:string[]
-    board:(string|null)[] = []
+    readonly types:RegularTypes[]
+    readonly supers:SuperTypes[]
+    board:(TileTypes|null)[] = []
 
-    constructor(config: {
-        horizontal:number,
-        vertical:number,
-        types:string[]
-    }) {
+    constructor(config:EngineConfig) {
         this.width = config.horizontal
         this.height = config.vertical
         this.dimension = this.width * this.height
         this.types = config.types
+        this.supers = config.supers
         this.reset()
     }
 
@@ -32,8 +34,12 @@ export default class Engine {
         }
     }
 
-    randType():string {
-        return this.types[randIntRange(0, this.types.length)]
+    randType():RegularTypes {
+        return this.types[randIntRange(0, this.types.length)] as RegularTypes
+    }
+
+    randSuper():SuperTypes {
+        return this.supers[randIntRange(0, this.supers.length)] as SuperTypes
     }
 
     pick(idx:number):BoardActionResult {
@@ -43,6 +49,63 @@ export default class Engine {
         const forRemove:BoardRemoved = this.removeGroup(idx)
         if (forRemove.length < MATCH_THRESHOLD) {
             return [[], [], []]
+        }
+        for (const removeIdx of forRemove) {
+            this.board[removeIdx] = null
+        }
+        const [forFalls, forAdds] = this.applyFallsAndAdds()
+        // assign super tile
+        if (forRemove.length > SUPER_THRESHOLD) {
+            let assigned:boolean = false
+            forFalls.forEach((tile:BoardFallsItem) => {
+                if (tile.newIndex === idx) {
+                    tile.type = this.randSuper()
+                    this.board[tile.newIndex] = tile.type
+                    assigned = true
+                }
+            })
+            if (!assigned) {
+                forAdds.forEach((tile:BoardAddsItem) => {
+                    if (tile.newIndex === idx) {
+                        tile.type = this.randSuper()
+                        this.board[tile.newIndex] = tile.type
+                    }
+                })
+            }
+        }
+        return [forRemove, forFalls, forAdds]
+    }
+
+    vertical(idx:number):BoardActionResult {
+        if (this.board[idx] === null) {
+            return [[], [], []]
+        }
+        const col = idx % this.width
+        const forRemove:BoardRemoved = []
+        for (let r = 0; r < this.height; r++) {
+            const index = r * this.width + col
+            if (this.board[index] !== null) {
+                forRemove.push(index)
+            }
+        }
+        for (const removeIdx of forRemove) {
+            this.board[removeIdx] = null
+        }
+        const [forFalls, forAdds] = this.applyFallsAndAdds()
+        return [forRemove, forFalls, forAdds]
+    }
+
+    horizontal(idx:number):BoardActionResult {
+        if (this.board[idx] === null) {
+            return [[], [], []]
+        }
+        const row = Math.floor(idx / this.width)
+        const forRemove:BoardRemoved = []
+        for (let c = 0; c < this.width; c++) {
+            const index = row * this.width + c
+            if (this.board[index] !== null) {
+                forRemove.push(index)
+            }
         }
         for (const removeIdx of forRemove) {
             this.board[removeIdx] = null
@@ -78,8 +141,8 @@ export default class Engine {
     }
 
     swap(fromIdx:number, toIdx:number):void {
-        const fromType:string = this.board[fromIdx]
-        const toType:string = this.board[toIdx]
+        const fromType = this.board[fromIdx] as RegularTypes
+        const toType = this.board[toIdx] as RegularTypes
         this.board[fromIdx] = toType
         this.board[toIdx] = fromType
     }
@@ -190,8 +253,9 @@ export default class Engine {
                         index: tile.index,
                         newIndex,
                         //removed: fallDistance
+                        type: tile.type as TileTypes
                     })
-                    this.board[newIndex] = tile.type
+                    this.board[newIndex] = tile.type as TileTypes
                 }
                 writeRow--
             }

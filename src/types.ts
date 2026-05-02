@@ -4,6 +4,7 @@ import * as PIXI from 'pixi.js'
 // должен строго соответствовать ключу данных board.settings.tiles.types
 export type RegularTypes = 'blue'|'green'|'purpure'|'yellow'|'red'
 
+// должен строго соответствовать ключу данных board.settings.tiles.supers
 export type SuperTypes = 'bomb'|'vertical'|'horisontal'
 
 export type TileTypes = RegularTypes|SuperTypes
@@ -19,14 +20,26 @@ export type BoosterType = 'bomb'|'swap'
 
 export type BoardRemoved = number[]
 
-export type BoardFalls = Array<{
+export type BoardFallsItem = {
     index: number
     newIndex: number
-}>
+    type: TileTypes
+}
 
-export type BoardAdds = Array<{
+export type BoardFalls = BoardFallsItem[]
+
+export type BoardAddsItem = {
     newIndex: number
     type: TileTypes
-}>
+}
+
+export type BoardAdds = BoardAddsItem[]
 
 export type BoardActionResult = [BoardRemoved, BoardFalls, BoardAdds]
+
+export interface EngineConfig {
+    horizontal:number,
+    vertical:number,
+    types:RegularTypes[],
+    supers:SuperTypes[]
+}

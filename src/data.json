@@ -27,7 +27,7 @@
             "marvin.otf"
         ],
         "settings": {
-            "steps": 50,
+            "steps": 40,
             "scores": 800,
             "tiles": {
                 "size": 34,
@@ -35,6 +35,9 @@
                 "upscaleFactor": 1.2,
                 "types": [
                     "blue", "green", "purpure", "yellow", "red"
+                ],
+                "supers": [
+                    "bomb", "vertical", "horisontal"
                 ],
                 "colors": {
                     "blue": "#3377ff",
