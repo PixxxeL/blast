@@ -6,7 +6,7 @@ import TWEEN from '@tweenjs/tween.js'
 import type Game from '@/game/index'
 import type { RootState } from '@/game/store'
 import type { BaseScene } from '@/widgets/baseScene'
-import type { TileSprite, BoardFalls, BoardAdds, BoardActionResult } from '@/types'
+import type { TileTypes, TileSprite, BoardFalls, BoardAdds, BoardActionResult } from '@/types'
 import Label from '@/widgets/label'
 import Boosters from '@/widgets/boosters'
 import { spriteById, hexToInt } from '@/utils'
@@ -121,20 +121,20 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         for (let i:number = 0; i < this.engine.height; i++) {
             for (let j:number = 0; j < this.engine.width; j++) {
                 const idx:number = i * this.engine.width + j
-                const type:string = this.engine.board[idx]
+                const type = this.engine.board[idx] as TileTypes
                 this.addTile(idx, type, j, i)
             }
         }
     }
 
-    private addTile(index:number, type:string, row:number, col:number):void {
+    private addTile(index:number, type:TileTypes, row:number, col:number):void {
         const { size, gap } = this.getState().board.settings.tiles
         const x:number = row * size + size * 0.5 + gap * (row + 1)
         const y:number = col * size + size * 0.5 + gap * (col + 1)
         this.addTileSprite(index, type, x, y)
     }
 
-    private addTileSprite(index:number, type:string, x:number, y:number):void {
+    private addTileSprite(index:number, type:TileTypes, x:number, y:number):void {
         const size:number = this.getState().board.settings.tiles.size
         const sprite = spriteById(`block-${type}`, 'board/board') as TileSprite
         sprite.tileData = {
