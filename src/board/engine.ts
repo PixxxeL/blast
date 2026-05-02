@@ -3,6 +3,7 @@ import type { BoardRemoved, BoardFalls, BoardAdds, BoardActionResult } from '@/t
 
 
 const BOMB_DISTANCE:number = 1
+const MATCH_THRESHOLD:number = 3
 
 export default class Engine {
 
@@ -40,7 +41,7 @@ export default class Engine {
             return [[], [], []]
         }
         const forRemove:BoardRemoved = this.removeGroup(idx)
-        if (forRemove.length < 3) {
+        if (forRemove.length < MATCH_THRESHOLD) {
             return [[], [], []]
         }
         for (const removeIdx of forRemove) {
@@ -96,7 +97,7 @@ export default class Engine {
             while (queue.length > 0) {
                 const current:number = queue.shift()!
                 count++
-                if (count >= 3) {
+                if (count >= MATCH_THRESHOLD) {
                     return true
                 }
                 const row:number = Math.floor(current / this.width)
