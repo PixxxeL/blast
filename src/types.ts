@@ -1,4 +1,4 @@
-import * as PIXI from 'pixi.js'
+import type { Sprite } from 'pixi.js'
 
 
 // должен строго соответствовать ключу данных board.settings.tiles.types
@@ -14,7 +14,7 @@ export interface TileData {
     type: TileTypes
 }
 
-export type TileSprite = PIXI.Sprite & { tileData: TileData }
+export type TileSprite = Sprite & { tileData: TileData }
 
 export type BoosterType = 'bomb'|'swap'
 

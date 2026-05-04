@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit'
+import type { PayloadAction } from '@reduxjs/toolkit'
 import { board } from '@/data.json'
 
 
@@ -8,51 +9,44 @@ export default createSlice({
     name: 'board',
     initialState: board,
     reducers: {
-        makeStep(state, action) {
+        makeStep(state, action:PayloadAction<number>) {
             const count:number = action.payload
             let factor:number = SCORES_FACTOR * count / 3
             state.steps += 1
             state.scores += (count * factor|0)
-            return state
         },
         reset(state) {
             state.steps = 0
             state.scores = 0
             state.boosters = {...state.settings.boosters}
-            return state
         },
-        boosterOn(state, action) {
-            const oldCount:number = state.boosters[action.payload],
+        boosterOn(state, action:PayloadAction<string>) {
+            const oldCount:number = state.boosters[action.payload] ?? 0,
                 newCount:number = oldCount - 1
             if (oldCount > 0) {
                 state.boosterMode = action.payload
             }
             state.boosters[action.payload] = Math.max(0, newCount)
-            return state
         },
-        consumeBombBooster(state, action) {
+        consumeBombBooster(state, action:PayloadAction<number>) {
             state.boosterMode = null
             state.steps += 1
             state.scores += action.payload * SCORES_FACTOR
-            return state
         },
         consumeSwapBooster(state) {
             state.boosterMode = null
             state.selected = null
-            return state
         },
-        selectSwapIndex(state, action) {
+        selectSwapIndex(state, action:PayloadAction<number>) {
             state.selected = action.payload
-            return state
         },
-        cancelBooster(state, action) {
+        cancelBooster(state, action:PayloadAction<string>) {
             state.boosterMode = null
             state.selected = null
             const newCount:number = state.boosters[action.payload] + 1
             state.boosters[action.payload] = Math.min(
                 state.settings.boosters[action.payload], newCount
             )
-            return state
         }
     }
 })

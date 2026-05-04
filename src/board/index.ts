@@ -32,8 +32,6 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
     private boardContainer:Container
     private scoresLabel:Label
     private stepsLabel:Label
-    //private prevScale:number|null = null
-    //private prevZ:number|null = null
 
     constructor(private game:Game) {
         super()
@@ -155,9 +153,6 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
         sprite.cursor = 'pointer'
         sprite.eventMode = 'static'
         sprite.on('pointerdown', this.onDownPointer.bind(this))
-        //sprite.on('pointerup', this.onUpPointer.bind(this))
-        //sprite.on('mouseover', this.overGem.bind(this))
-        //sprite.on('mouseout', this.outGem.bind(this))
         this.boardContainer.addChild(sprite)
         return sprite
     }
@@ -230,29 +225,6 @@ export default class BoardScene extends PIXI.Container implements BaseScene {
             y: row * size + size * .5 + gap * (row + 1)
         }
     }
-
-    /*private onUpPointer(event:PIXI.FederatedPointerEvent):void {
-        console.log('Up', event.target)
-    }*/
-
-    /*private overGem(event:PIXI.FederatedPointerEvent):void {
-        const sprite:Sprite = event.target as Sprite
-        this.prevScale = sprite.scale.x
-        const { upscaleFactor } = this.getState().board.settings.tiles
-        sprite.scale.set(this.prevScale * upscaleFactor)
-        this.prevZ = sprite.zIndex
-        sprite.zIndex = this.engine.dimension
-    }
-
-    private outGem(event:PIXI.FederatedPointerEvent):void {
-        const sprite:Sprite = event.currentTarget as Sprite
-        if (this.prevScale) {
-            sprite.scale.set(this.prevScale)
-        }
-        if (this.prevZ) {
-            sprite.zIndex = this.prevZ
-        }
-    }*/
 
     private makeStep():void {
         let [ stepsDiff, scores, targetScores ] = this.getWinTerms()
