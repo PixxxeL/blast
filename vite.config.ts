@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { htmlInjectionPlugin } from 'vite-plugin-html-injection'
 
 
 export default defineConfig({
@@ -22,6 +23,17 @@ export default defineConfig({
         }
     },
     plugins: [
+        htmlInjectionPlugin({
+            injections: [
+                {
+                    name: 'Yandex Metrica',
+                    path: './yandex-metrika.html',
+                    type: 'raw', // raw | js | css
+                    injectTo: 'body', // head | body | head-prepend | body-prepend
+                    buildModes: 'prod' // dev | prod | both
+                }
+            ]
+        }),
         viteStaticCopy({
             targets: [
                 {
